@@ -44,7 +44,7 @@ st.sidebar.info(
     "It uses a fine-tuned EfficientNetB2 architecture."
 )
 
-# Class labels (Aapke model ke mutabiq classes yahan honge, agar zaroorat ho toh inhein adjust kar sakte hain)
+# Class labels
 CLASSES = ['Glioma Tumor', 'Meningioma Tumor', 'No Tumor', 'Pituitary Tumor']
 
 # --- FILE UPLOADER ---
@@ -54,11 +54,12 @@ if uploaded_file is not None:
     # Display the uploaded image
     image = Image.open(uploaded_file)
     st.image(image, caption='Uploaded MRI Image', use_container_width=True)
+    
     if st.button('Predict Tumor'):
         with st.spinner('Analyzing the MRI scan...'):
             try:
-                # Preprocessing image for EfficientNetB2 (Standard size: 260x260 or as per your training)
-                img = image.resize((260, 260))
+                # Automatically resize ANY uploaded image size to 224x224 required by EfficientNetB2
+                img = image.resize((224, 224))
                 img_array = np.array(img)
                 
                 # Handle grayscale or RGBA images
@@ -68,7 +69,7 @@ if uploaded_file is not None:
                     img_array = img_array[:, :, :3]
                     
                 img_array = np.expand_dims(img_array, axis=0)
-                img_array = img_array / 255.0  # Normalization if used during training
+                img_array = img_array / 255.0  # Normalization
                 
                 # Make Prediction
                 predictions = model.predict(img_array)
