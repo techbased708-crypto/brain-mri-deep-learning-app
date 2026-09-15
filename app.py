@@ -1,47 +1,85 @@
+import os
 import streamlit as st
 import tensorflow as tf
+from tensorflow.keras.models import load_model
 import numpy as np
 from PIL import Image
-from tensorflow.keras.applications.efficientnet import preprocess_input
+import gdown
 
-# Page Configuration
-st.set_page_config(page_title="Brain Tumor Detection App", page_icon="🧠", layout="centered")
+# --- PAGE CONFIGURATION ---
+st.set_page_config(
+    page_title="Brain Tumor Detection App",
+    page_icon="🧠",
+    layout="centered"
+)
 
-# Model Load karne ka function (Cache taaki bar-bar load na ho)
+# --- GOOGLE DRIVE MODEL CONFIGURATION ---
+FILE_ID = '1ztn97BcVwZ9uGkmP8pbAnu1Z_skg472V'
+MODEL_URL = f'https://drive.google.com/uc?id={FILE_ID}'
+MODEL_PATH = 'brain_tumor_efficientnetB2_model.keras'
+
 @st.cache_resource
-def load_model():
-    model = tf.keras.models.load_model('brain_tumor_efficientnetB2_model.keras')
+def load_data_model():
+    """Downloads the model from Google Drive if not present and loads it into memory."""
+    if not os.path.exists(MODEL_PATH):
+        with st.spinner('Downloading model from Google Drive... Please wait, this may take a minute.'):
+            gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
+            
+    model = load_model(MODEL_PATH)
     return model
 
-model = load_model()
-class_names = ['glioma', 'meningioma', 'notumor', 'pituitary']
+# Load model safely
+try:
+    model = load_data_model()
+except Exception as e:
+    st.error(f"Error loading model: {e}")
 
-st.title("🧠 Brain Tumor MRI Classification")
-st.write("Upload a brain MRI scan image below to classify the tumor type using **EfficientNetB2**.")
+# --- UI DESIGN & STYLING ---
+st.title("🧠 Brain Tumor Classification App")
+st.markdown("Upload a brain MRI image to detect the presence and type of tumor using deep learning (EfficientNetB2).")
 
-# File Uploader
+st.sidebar.header("About Project")
+st.sidebar.info(
+    "This application is a professional portfolio piece designed for medical imaging classification. "
+    "It uses a fine-tuned EfficientNetB2 architecture."
+)
+
+# Class labels (Aapke model ke mutabiq classes yahan honge, agar zaroorat ho toh inhein adjust kar sakte hain)
+CLASSES = ['Glioma Tumor', 'Meningioma Tumor', 'No Tumor', 'Pituitary Tumor']
+
+# --- FILE UPLOADER ---
 uploaded_file = st.file_uploader("Choose an MRI image...", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
+    # Display the uploaded image
     image = Image.open(uploaded_file)
-    st.image(image, caption='Uploaded MRI Scan', use_column_width=True)
+    st.image(image, caption='Uploaded MRI Image', use_column_width=True)
     
-    if st.button('Predict Tumor Type'):
-        with st.spinner('Analyzing the scan...'):
-            # Image preprocessing
-            img = image.resize((224, 224))
-            x = tf.keras.preprocessing.image.img_to_array(img)
-            x = np.expand_dims(x, axis=0)
-            x = preprocess_input(x)
-            
-            # Prediction
-            preds = model.predict(x)
-            pred_idx = np.argmax(preds[0])
-            pred_class = class_names[pred_idx]
-            confidence = np.max(preds[0]) * 100
-            
-            # Results Display
-            st.markdown("---")
-            st.subheader("Prediction Results")
-            st.success(f"**Detected Tumor Type:** {pred_class.upper()}")
-            st.info(f"**Confidence Score:** {confidence:.2f}%")
+    if st.button('Predict Tumor'):
+        with st.spinner('Analyzing the MRI scan...'):
+            try:
+                # Preprocessing image for EfficientNetB2 (Standard size: 260x260 or as per your training)
+                img = image.resize((260, 260))
+                img_array = np.array(img)
+                
+                # Handle grayscale or RGBA images
+                if img_array.ndim == 2:
+                    img_array = np.stack((img_array,)*3, axis=-1)
+                elif img_array.shape[2] == 4:
+                    img_array = img_array[:, :, :3]
+                    
+                img_array = np.expand_dims(img_array, axis=0)
+                img_array = img_array / 255.0  # Normalization if used during training
+                
+                # Make Prediction
+                predictions = model.predict(img_array)
+                predicted_class_idx = np.argmax(predictions[0])
+                confidence = float(np.max(predictions[0])) * 100
+                
+                # Display Results
+                st.success("Analysis Complete!")
+                st.markdown(f"### Prediction: **{CLASSES[predicted_class_idx]}**")
+                st.markdown(f"### Confidence: **{confidence:.2f}%**")
+                
+            except Exception as e:
+                st.error(f"An error occurred during prediction: {e}")
