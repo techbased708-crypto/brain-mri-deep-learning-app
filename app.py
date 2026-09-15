@@ -53,8 +53,7 @@ uploaded_file = st.file_uploader("Choose an MRI image...", type=["jpg", "jpeg", 
 if uploaded_file is not None:
     # Display the uploaded image
     image = Image.open(uploaded_file)
-    st.image(image, caption='Uploaded MRI Image', use_column_width=True)
-    
+    st.image(image, caption='Uploaded MRI Image', use_container_width=True)
     if st.button('Predict Tumor'):
         with st.spinner('Analyzing the MRI scan...'):
             try:
